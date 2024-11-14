@@ -136,37 +136,6 @@ where
     Ok(distance_map)
 }
 
-fn path_from_shortest_path_tree<G>(
-    graph: G,
-    shortest_path_tree: &[Vec<Option<usize>>],
-    edge: (G::NodeId, G::NodeId),
-) -> Vec<(G::NodeId, G::NodeId)>
-where
-    G: NodeCompactIndexable + IntoEdgeReferences + IntoNodeIdentifiers + GraphProp,
-    G::NodeId: Eq + Hash,
-{
-    let (source, target) = edge;
-    let u = graph.to_index(source);
-    let mut v = graph.to_index(target);
-    let mut v_id = target;
-
-    if shortest_path_tree[u][v].is_none() {
-        return Vec::new();
-    }
-    let mut path = Vec::new();
-    while u != v {
-        if let Some(new_v) = shortest_path_tree[u][v] {
-            path.push((graph.from_index(new_v), v_id));
-            v = new_v;
-            v_id = graph.from_index(new_v);
-        }
-    }
-
-    path.reverse();
-
-    path
-}
-
 #[allow(clippy::type_complexity, clippy::needless_range_loop)]
 /// \[Generic\] [Floyd–Warshall algorithm](https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm) is an algorithm for all pairs shortest path problem
 ///
@@ -224,7 +193,7 @@ where
 /// ].iter().cloned().collect();
 ///
 ///
-/// let (res, paths) = floyd_warshall_path(&graph, Some([(a,c)].iter().cloned().collect()), |edge| {
+/// let (res, prev) = floyd_warshall_path(&graph, |edge| {
 ///     if let Some(weight) = weight_map.get(&(edge.source(), edge.target())) {
 ///         *weight
 ///     } else {
@@ -232,7 +201,7 @@ where
 ///     }
 /// }).unwrap();
 ///
-/// assert_eq!(paths.get(&(a, c)), Some(vec![(a, b), (b, c)].as_ref()));
+/// assert_eq!(prev[0][2], Some(1));
 ///
 /// let nodes = [a, b, c, d];
 /// for node1 in &nodes {
@@ -244,15 +213,8 @@ where
 /// ```
 pub fn floyd_warshall_path<G, F, K>(
     graph: G,
-    required_paths: Option<Vec<(G::NodeId, G::NodeId)>>,
     mut edge_cost: F,
-) -> Result<
-    (
-        HashMap<(G::NodeId, G::NodeId), K>,
-        HashMap<(G::NodeId, G::NodeId), Vec<(G::NodeId, G::NodeId)>>,
-    ),
-    NegativeCycle,
->
+) -> Result<(HashMap<(G::NodeId, G::NodeId), K>, Vec<Vec<Option<usize>>>), NegativeCycle>
 where
     G: NodeCompactIndexable + IntoEdgeReferences + IntoNodeIdentifiers + GraphProp,
     G::NodeId: Eq + Hash,
@@ -303,12 +265,5 @@ where
         }
     }
 
-    let mut path_map = HashMap::new();
-    if let Some(edges) = required_paths {
-        for edge in edges {
-            path_map.insert(edge, path_from_shortest_path_tree(graph, &prev, edge));
-        }
-    }
-
-    Ok((distance_map, path_map))
+    Ok((distance_map, prev))
 }
