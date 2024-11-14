@@ -42,6 +42,37 @@ where
     closure
 }
 
+fn path_from_shortest_path_tree<G>(
+    graph: G,
+    shortest_path_tree: &[Vec<Option<usize>>],
+    edge: (G::NodeId, G::NodeId),
+) -> Vec<(G::NodeId, G::NodeId)>
+where
+    G: NodeCompactIndexable + IntoEdgeReferences + IntoNodeIdentifiers + GraphProp,
+    G::NodeId: Eq + Hash,
+{
+    let (source, target) = edge;
+    let u = graph.to_index(source);
+    let mut v = graph.to_index(target);
+    let mut v_id = target;
+
+    if shortest_path_tree[u][v].is_none() {
+        return Vec::new();
+    }
+    let mut path = Vec::new();
+    while u != v {
+        if let Some(new_v) = shortest_path_tree[u][v] {
+            path.push((graph.from_index(new_v), v_id));
+            v = new_v;
+            v_id = graph.from_index(new_v);
+        }
+    }
+
+    path.reverse();
+
+    path
+}
+
 fn subgraph_edges_from_metric_closure<G>(
     graph: G,
     minimum_spanning_closure: G,
@@ -60,13 +91,13 @@ where
     let closure_edges = minimum_spanning_closure
         .edge_references()
         .map(|edge_ref| (edge_ref.source(), edge_ref.target()))
-        .collect();
-    let (_, mut prev) = floyd_warshall_path(graph, Some(closure_edges), |e| *e.weight()).unwrap();
+        .collect::<Vec<(G::NodeId, G::NodeId)>>();
+    let (_, prev) = floyd_warshall_path(graph, |e| *e.weight()).unwrap();
     let mut retained_edges = Vec::new();
-
-    for (_, value) in prev.iter_mut() {
-        retained_edges.append(value)
+    for edge in closure_edges {
+        retained_edges.append(&mut path_from_shortest_path_tree(graph, &prev, edge));
     }
+
     retained_edges
 }
 
@@ -156,7 +187,7 @@ where
     E: Copy + Eq + Ord + Measure + BoundedMeasure,
 {
     let mut graph = graph.clone();
-    let metric_closure = compute_metric_closure(&graph, &terminals);
+    let metric_closure = compute_metric_closure(&graph, terminals);
     let metric_closure_graph: UnGraph<N, E, _> = UnGraph::from_edges(
         metric_closure
             .iter()
