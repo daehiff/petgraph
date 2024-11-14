@@ -36,7 +36,7 @@ pub use astar::astar;
 pub use bellman_ford::{bellman_ford, find_negative_cycle};
 pub use dijkstra::dijkstra;
 pub use feedback_arc_set::greedy_feedback_arc_set;
-pub use floyd_warshall::floyd_warshall;
+pub use floyd_warshall::{floyd_warshall, floyd_warshall_path};
 pub use ford_fulkerson::ford_fulkerson;
 pub use isomorphism::{
     is_isomorphic, is_isomorphic_matching, is_isomorphic_subgraph, is_isomorphic_subgraph_matching,
